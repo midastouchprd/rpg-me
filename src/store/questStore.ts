@@ -21,10 +21,9 @@ type QuestStore = {
 }
 
 const defaultQuests: Quest[] = [
-  { id: uuidv4(), title: "Take a shower AND brush teeth X days in a row", questGiver: "Chelsea", goalDays: 20, currentStreak: 0, isComplete: false },
-  { id: uuidv4(), title: "Walk 3,500 steps X days in a row", questGiver: "Emily", goalDays: 7, currentStreak: 1, isComplete: false },
-  { id: uuidv4(), title: "Sleep 6+ hours a night X nights in a row", questGiver: "Cyn", goalDays: 7, currentStreak: 2, isComplete: false },
-  { id: uuidv4(), title: "Fast for 16 hours X days in a row", questGiver: "Hannah", goalDays: 3, currentStreak: 1, isComplete: false },
+  { id: uuidv4(), title: "Take a shower AND brush teeth X days in a row", questGiver: "Chelsea", goalDays: 20, currentStreak: 1, isComplete: false },
+  { id: uuidv4(), title: "Walk 3,500 steps X days in a row", questGiver: "Emily", goalDays: 7, currentStreak: 2, isComplete: false },
+  { id: uuidv4(), title: "Sleep 6+ hours a night X nights in a row", questGiver: "Cyn", goalDays: 7, currentStreak: 3, isComplete: false },
 ]
 
 const defaultLegendary: LegendaryQuest[] = [
@@ -35,14 +34,15 @@ const defaultLegendary: LegendaryQuest[] = [
     questGiverTitle: "Legendary Quest Giver",
     goalDays: 7,
     currentStreak: 0,
-    requirement: "Reach 400lbs to begin this quest",
+    requirement: "Reach 399lbs to begin this quest",
     isStarted: false,
     isComplete: false,
   }
 ]
 
 const defaultCompleted: CompletedQuest[] = [
-  { id: uuidv4(), title: "Take a shower 10 days in a row", questGiver: "Chelsea", goalDays: 10, completedAt: new Date().toISOString(), isLegendary: false }
+  { id: uuidv4(), title: "Take a shower 10 days in a row", questGiver: "Chelsea", goalDays: 10, completedAt: new Date().toISOString(), isLegendary: false },
+  { id: uuidv4(), title: "Fast for 16 hours X days in a row", questGiver: "Hannah", goalDays: 3, completedAt: new Date().toISOString(), isLegendary: false },
 ]
 
 export const useQuestStore = create<QuestStore>()(
