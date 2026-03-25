@@ -38,7 +38,7 @@ export function LegendaryQuestCard({ quest }: Props) {
             <div className='min-w-0'>
               <div className='flex items-center gap-2'>
                 <span className='text-base'>🔒</span>
-                <CardTitle className='text-base font-semibold leading-snug text-zinc-400'>
+                <CardTitle className='text-base font-semibold leading-snug text-zinc-400 font-heading'>
                   {quest.title}
                 </CardTitle>
               </div>
@@ -80,7 +80,7 @@ export function LegendaryQuestCard({ quest }: Props) {
           <div className='min-w-0'>
             <div className='flex items-center gap-2'>
               <span className='text-base'>⭐</span>
-              <CardTitle className='text-base font-semibold leading-snug text-amber-200'>
+              <CardTitle className='text-base font-semibold leading-snug text-amber-200 font-heading'>
                 {quest.title}
               </CardTitle>
             </div>
@@ -108,7 +108,9 @@ export function LegendaryQuestCard({ quest }: Props) {
           </div>
           <Progress
             value={progress}
-            className='h-2 bg-amber-900 [&>div]:bg-amber-500'
+            className='h-2'
+            trackClassName='bg-amber-950'
+            indicatorClassName='bg-amber-500'
           />
         </div>
         <div className='flex items-center gap-2'>

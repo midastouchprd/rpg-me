@@ -32,7 +32,7 @@ export function CompletedQuestCard({ quest }: Props) {
             <div className='flex items-center gap-2'>
               {isLegendary && <span className='text-sm'>⭐</span>}
               <CardTitle
-                className={`text-base font-semibold leading-snug ${
+                className={`text-base font-semibold leading-snug font-heading ${
                   isLegendary ? 'text-amber-200' : 'text-emerald-100'
                 }`}>
                 {quest.title}

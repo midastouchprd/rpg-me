@@ -30,7 +30,7 @@ export function QuestCard({ quest }: Props) {
       <CardHeader className='pb-3'>
         <div className='flex items-start justify-between gap-2'>
           <div className='min-w-0'>
-            <CardTitle className='text-base font-semibold leading-snug text-white'>
+            <CardTitle className='text-base font-semibold leading-snug text-white font-heading'>
               {quest.title}
             </CardTitle>
             <p className='text-sm text-slate-400 mt-1'>
@@ -52,7 +52,9 @@ export function QuestCard({ quest }: Props) {
           </div>
           <Progress
             value={progress}
-            className='h-2 bg-slate-700 [&>div]:bg-blue-500'
+            className='h-2'
+            trackClassName='bg-slate-600/50'
+            indicatorClassName='bg-blue-500'
           />
         </div>
         <div className='flex items-center gap-2'>
