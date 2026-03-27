@@ -9,16 +9,17 @@ import { Progress } from '@/components/ui/progress';
 
 type Props = {
   quest: LegendaryQuest;
+  disabled?: boolean;
 };
 
-export function LegendaryQuestCard({ quest }: Props) {
+export function LegendaryQuestCard({ quest, disabled = false }: Props) {
   const {
     incrementLegendary,
     decrementLegendary,
     resetLegendary,
     startLegendaryQuest,
     completeLegendaryQuest,
-    useStreakSaveLegendary,
+    useStreakSaveLegendary: applyStreakSaveLegendary,
   } = useQuestStore();
 
   const progress = (quest.currentStreak / quest.goalDays) * 100;
@@ -64,6 +65,7 @@ export function LegendaryQuestCard({ quest }: Props) {
           <Button
             size='sm'
             onClick={() => startLegendaryQuest(quest.id)}
+            disabled={disabled}
             className='bg-amber-700 hover:bg-amber-600 text-white'>
             Start Quest
           </Button>
@@ -119,21 +121,22 @@ export function LegendaryQuestCard({ quest }: Props) {
             size='sm'
             variant='outline'
             onClick={() => decrementLegendary(quest.id)}
-            disabled={quest.currentStreak <= 0}
+            disabled={disabled || quest.currentStreak <= 0}
             className='border-amber-700 bg-amber-900/50 text-amber-200 hover:bg-amber-800 disabled:opacity-30'>
             −
           </Button>
           <Button
             size='sm'
             onClick={handleIncrement}
+            disabled={disabled}
             className='bg-amber-600 hover:bg-amber-500 text-white'>
             +
           </Button>
           <Button
             size='sm'
             variant='outline'
-            onClick={() => useStreakSaveLegendary(quest.id)}
-            disabled={!quest.streakSaveToken}
+            onClick={() => applyStreakSaveLegendary(quest.id)}
+            disabled={disabled || !quest.streakSaveToken}
             title={
               quest.streakSaveToken
                 ? 'Use streak save token to protect your streak for a missed day'
@@ -146,6 +149,7 @@ export function LegendaryQuestCard({ quest }: Props) {
             size='sm'
             variant='ghost'
             onClick={() => resetLegendary(quest.id)}
+            disabled={disabled}
             className='text-amber-400 hover:text-amber-200 hover:bg-amber-900 ml-auto'>
             Reset
           </Button>

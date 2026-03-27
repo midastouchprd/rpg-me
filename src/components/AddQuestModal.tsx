@@ -12,7 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export function AddQuestModal() {
+type Props = {
+  disabled?: boolean;
+};
+
+export function AddQuestModal({ disabled = false }: Props) {
   const { addQuest } = useQuestStore();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -35,12 +39,19 @@ export function AddQuestModal() {
       <Button
         size='sm'
         onClick={() => setOpen(true)}
+        disabled={disabled}
         className='bg-blue-600 hover:bg-blue-500 text-white'>
         + Add Quest
       </Button>
       <Dialog
         open={open}
-        onOpenChange={setOpen}>
+        onOpenChange={(nextOpen) => {
+          if (disabled) {
+            setOpen(false);
+            return;
+          }
+          setOpen(nextOpen);
+        }}>
         <DialogContent className='bg-slate-900 border-slate-700 text-slate-100'>
           <DialogHeader>
             <DialogTitle className='text-white'>New Quest</DialogTitle>
@@ -97,11 +108,13 @@ export function AddQuestModal() {
                 type='button'
                 variant='ghost'
                 onClick={() => setOpen(false)}
+                disabled={disabled}
                 className='text-slate-400 hover:text-slate-200'>
                 Cancel
               </Button>
               <Button
                 type='submit'
+                disabled={disabled}
                 className='bg-blue-600 hover:bg-blue-500 text-white'>
                 Accept Quest
               </Button>

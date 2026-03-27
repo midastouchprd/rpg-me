@@ -3,11 +3,19 @@ import { db } from '@/db';
 import { quests, completedQuests } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getCurrentUserId } from '@/lib/auth';
+import { isAdminUnlocked } from '@/lib/adminLock';
 
 type Params = { params: Promise<{ id: string }> };
 
 // PATCH /api/quests/[id] — update streak, start, or use streak save token
 export async function PATCH(req: Request, { params }: Params) {
+  if (!(await isAdminUnlocked())) {
+    return NextResponse.json(
+      { error: 'Admin unlock required for quest changes.' },
+      { status: 403 },
+    );
+  }
+
   const userId = getCurrentUserId();
   const { id } = await params;
   const body = await req.json();
@@ -60,6 +68,13 @@ export async function PATCH(req: Request, { params }: Params) {
 
 // DELETE /api/quests/[id]?complete=true — complete (archive) or delete a quest
 export async function DELETE(req: Request, { params }: Params) {
+  if (!(await isAdminUnlocked())) {
+    return NextResponse.json(
+      { error: 'Admin unlock required for quest changes.' },
+      { status: 403 },
+    );
+  }
+
   const userId = getCurrentUserId();
   const { id } = await params;
   const { searchParams } = new URL(req.url);

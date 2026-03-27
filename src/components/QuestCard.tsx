@@ -9,15 +9,16 @@ import { Progress } from '@/components/ui/progress';
 
 type Props = {
   quest: Quest;
+  disabled?: boolean;
 };
 
-export function QuestCard({ quest }: Props) {
+export function QuestCard({ quest, disabled = false }: Props) {
   const {
     incrementQuest,
     decrementQuest,
     resetQuest,
     completeQuest,
-    useStreakSave,
+    useStreakSave: applyStreakSave,
   } = useQuestStore();
 
   const progress = (quest.currentStreak / quest.goalDays) * 100;
@@ -67,21 +68,22 @@ export function QuestCard({ quest }: Props) {
             size='sm'
             variant='outline'
             onClick={() => decrementQuest(quest.id)}
-            disabled={quest.currentStreak <= 0}
+            disabled={disabled || quest.currentStreak <= 0}
             className='border-slate-600 bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-30'>
             −
           </Button>
           <Button
             size='sm'
             onClick={handleIncrement}
+            disabled={disabled}
             className='bg-blue-600 hover:bg-blue-500 text-white'>
             +
           </Button>
           <Button
             size='sm'
             variant='outline'
-            onClick={() => useStreakSave(quest.id)}
-            disabled={!quest.streakSaveToken}
+            onClick={() => applyStreakSave(quest.id)}
+            disabled={disabled || !quest.streakSaveToken}
             title={
               quest.streakSaveToken
                 ? 'Use streak save token to protect your streak for a missed day'
@@ -94,6 +96,7 @@ export function QuestCard({ quest }: Props) {
             size='sm'
             variant='ghost'
             onClick={() => resetQuest(quest.id)}
+            disabled={disabled}
             className='text-slate-400 hover:text-slate-200 hover:bg-slate-700 ml-auto'>
             Reset
           </Button>

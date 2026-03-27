@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { quests, completedQuests } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getCurrentUserId } from '@/lib/auth';
+import { isAdminUnlocked } from '@/lib/adminLock';
 
 // GET /api/quests — return all active + completed quests for the current user
 export async function GET() {
@@ -21,6 +22,13 @@ export async function GET() {
 
 // POST /api/quests — create a new quest
 export async function POST(req: Request) {
+  if (!(await isAdminUnlocked())) {
+    return NextResponse.json(
+      { error: 'Admin unlock required for quest changes.' },
+      { status: 403 },
+    );
+  }
+
   const userId = getCurrentUserId();
   const body = await req.json();
 
