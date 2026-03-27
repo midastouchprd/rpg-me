@@ -12,8 +12,13 @@ type Props = {
 };
 
 export function QuestCard({ quest }: Props) {
-  const { incrementQuest, decrementQuest, resetQuest, completeQuest } =
-    useQuestStore();
+  const {
+    incrementQuest,
+    decrementQuest,
+    resetQuest,
+    completeQuest,
+    useStreakSave,
+  } = useQuestStore();
 
   const progress = (quest.currentStreak / quest.goalDays) * 100;
 
@@ -71,6 +76,19 @@ export function QuestCard({ quest }: Props) {
             onClick={handleIncrement}
             className='bg-blue-600 hover:bg-blue-500 text-white'>
             +
+          </Button>
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={() => useStreakSave(quest.id)}
+            disabled={!quest.streakSaveToken}
+            title={
+              quest.streakSaveToken
+                ? 'Use streak save token to protect your streak for a missed day'
+                : 'Streak save token already used'
+            }
+            className='border-amber-600 bg-amber-900/40 text-amber-300 hover:bg-amber-800/60 disabled:opacity-30 disabled:border-slate-600 disabled:text-slate-500'>
+            🛡️
           </Button>
           <Button
             size='sm'

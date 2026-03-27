@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuestStore } from '@/store/questStore';
 import { QuestCard } from '@/components/QuestCard';
 import { LegendaryQuestCard } from '@/components/LegendaryQuestCard';
@@ -9,7 +10,20 @@ import { AddLegendaryQuestModal } from '@/components/AddLegendaryQuestModal';
 import { Separator } from '@/components/ui/separator';
 
 export default function Home() {
-  const { quests, legendaryQuests, completedQuests } = useQuestStore();
+  const { quests, legendaryQuests, completedQuests, loading, hydrate } =
+    useQuestStore();
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  if (loading && quests.length === 0) {
+    return (
+      <div className='min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center'>
+        <p className='text-zinc-500 text-sm animate-pulse'>Loading quests...</p>
+      </div>
+    );
+  }
 
   return (
     <div className='min-h-screen bg-zinc-950 text-zinc-100'>

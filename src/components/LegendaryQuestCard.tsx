@@ -18,6 +18,7 @@ export function LegendaryQuestCard({ quest }: Props) {
     resetLegendary,
     startLegendaryQuest,
     completeLegendaryQuest,
+    useStreakSaveLegendary,
   } = useQuestStore();
 
   const progress = (quest.currentStreak / quest.goalDays) * 100;
@@ -127,6 +128,19 @@ export function LegendaryQuestCard({ quest }: Props) {
             onClick={handleIncrement}
             className='bg-amber-600 hover:bg-amber-500 text-white'>
             +
+          </Button>
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={() => useStreakSaveLegendary(quest.id)}
+            disabled={!quest.streakSaveToken}
+            title={
+              quest.streakSaveToken
+                ? 'Use streak save token to protect your streak for a missed day'
+                : 'Streak save token already used'
+            }
+            className='border-yellow-500 bg-yellow-900/40 text-yellow-300 hover:bg-yellow-800/60 disabled:opacity-30 disabled:border-amber-800 disabled:text-amber-700'>
+            🛡️
           </Button>
           <Button
             size='sm'

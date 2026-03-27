@@ -1,128 +1,221 @@
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
-import { v4 as uuidv4 } from "uuid"
-import { Quest, LegendaryQuest, CompletedQuest } from "@/types/quest"
+'use client';
 
-type QuestStore = {
-  quests: Quest[]
-  legendaryQuests: LegendaryQuest[]
-  completedQuests: CompletedQuest[]
-  addQuest: (title: string, questGiver: string, goalDays: number) => void
-  addLegendaryQuest: (title: string, questGiver: string, goalDays: number, requirement?: string) => void
-  incrementQuest: (id: string) => void
-  decrementQuest: (id: string) => void
-  resetQuest: (id: string) => void
-  incrementLegendary: (id: string) => void
-  decrementLegendary: (id: string) => void
-  resetLegendary: (id: string) => void
-  startLegendaryQuest: (id: string) => void
-  completeQuest: (id: string) => void
-  completeLegendaryQuest: (id: string) => void
+import { create } from 'zustand';
+import { Quest, LegendaryQuest, CompletedQuest } from '@/types/quest';
+
+// ---------------------------------------------------------------------------
+// DB row → TS type coercions
+// The API returns snake_case column names via Drizzle's .returning().
+// We map them to the camelCase types the UI already knows.
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toQuest(row: any): Quest {
+  return {
+    id: row.id,
+    title: row.title,
+    questGiver: row.quest_giver_name ?? row.questGiverName,
+    goalDays: row.goal_days ?? row.goalDays,
+    currentStreak: row.current_streak ?? row.currentStreak,
+    isComplete: false,
+    streakSaveToken: row.streak_save_token ?? row.streakSaveToken,
+  };
 }
 
-const defaultQuests: Quest[] = [
-  { id: uuidv4(), title: "Take a shower AND brush teeth X days in a row", questGiver: "Chelsea", goalDays: 20, currentStreak: 1, isComplete: false },
-  { id: uuidv4(), title: "Walk 3,500 steps X days in a row", questGiver: "Emily", goalDays: 7, currentStreak: 2, isComplete: false },
-  { id: uuidv4(), title: "Sleep 6+ hours a night X nights in a row", questGiver: "Cyn", goalDays: 7, currentStreak: 3, isComplete: false },
-]
-
-const defaultLegendary: LegendaryQuest[] = [
-  {
-    id: uuidv4(),
-    title: "Stay under 400lbs for 7 consecutive days",
-    questGiver: "Kacey Samiee",
-    questGiverTitle: "Legendary Quest Giver",
-    goalDays: 7,
-    currentStreak: 0,
-    requirement: "Reach 399lbs to begin this quest",
-    isStarted: false,
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toLegendary(row: any): LegendaryQuest {
+  return {
+    id: row.id,
+    title: row.title,
+    questGiver: row.quest_giver_name ?? row.questGiverName,
+    questGiverTitle: row.quest_giver_title ?? row.questGiverTitle ?? undefined,
+    goalDays: row.goal_days ?? row.goalDays,
+    currentStreak: row.current_streak ?? row.currentStreak,
+    requirement: row.requirement ?? undefined,
+    isStarted: row.is_started ?? row.isStarted,
     isComplete: false,
-  }
-]
+    streakSaveToken: row.streak_save_token ?? row.streakSaveToken,
+  };
+}
 
-const defaultCompleted: CompletedQuest[] = [
-  { id: uuidv4(), title: "Take a shower 10 days in a row", questGiver: "Chelsea", goalDays: 10, completedAt: new Date().toISOString(), isLegendary: false },
-  { id: uuidv4(), title: "Fast for 16 hours X days in a row", questGiver: "Hannah", goalDays: 3, completedAt: new Date().toISOString(), isLegendary: false },
-]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toCompleted(row: any): CompletedQuest {
+  return {
+    id: row.id,
+    title: row.title,
+    questGiver: row.quest_giver_name ?? row.questGiverName,
+    goalDays: row.goal_days ?? row.goalDays,
+    completedAt: row.completed_at ?? row.completedAt,
+    isLegendary: row.is_legendary ?? row.isLegendary,
+  };
+}
 
-export const useQuestStore = create<QuestStore>()(
-  persist(
-    (set, get) => ({
-      quests: defaultQuests,
-      legendaryQuests: defaultLegendary,
-      completedQuests: defaultCompleted,
+// ---------------------------------------------------------------------------
+// Store
+// ---------------------------------------------------------------------------
 
-      addQuest: (title, questGiver, goalDays) => set((s) => ({
-        quests: [...s.quests, { id: uuidv4(), title, questGiver, goalDays, currentStreak: 0, isComplete: false }]
-      })),
+type QuestStore = {
+  quests: Quest[];
+  legendaryQuests: LegendaryQuest[];
+  completedQuests: CompletedQuest[];
+  loading: boolean;
 
-      addLegendaryQuest: (title, questGiver, goalDays, requirement) => set((s) => ({
-        legendaryQuests: [...s.legendaryQuests, {
-          id: uuidv4(), title, questGiver, goalDays, currentStreak: 0,
-          requirement, isStarted: false, isComplete: false
-        }]
-      })),
+  hydrate: () => Promise<void>;
+  addQuest: (title: string, questGiver: string, goalDays: number) => Promise<void>;
+  addLegendaryQuest: (
+    title: string,
+    questGiver: string,
+    goalDays: number,
+    requirement?: string,
+  ) => Promise<void>;
+  incrementQuest: (id: string) => Promise<void>;
+  decrementQuest: (id: string) => Promise<void>;
+  resetQuest: (id: string) => Promise<void>;
+  incrementLegendary: (id: string) => Promise<void>;
+  decrementLegendary: (id: string) => Promise<void>;
+  resetLegendary: (id: string) => Promise<void>;
+  startLegendaryQuest: (id: string) => Promise<void>;
+  completeQuest: (id: string) => Promise<void>;
+  completeLegendaryQuest: (id: string) => Promise<void>;
+  useStreakSave: (id: string) => Promise<void>;
+  useStreakSaveLegendary: (id: string) => Promise<void>;
+};
 
-      incrementQuest: (id) => set((s) => ({
-        quests: s.quests.map((q) => q.id === id
-          ? { ...q, currentStreak: Math.min(q.currentStreak + 1, q.goalDays) }
-          : q)
-      })),
+async function patchQuest(id: string, action: string) {
+  const res = await fetch(`/api/quests/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
 
-      decrementQuest: (id) => set((s) => ({
-        quests: s.quests.map((q) => q.id === id
-          ? { ...q, currentStreak: Math.max(q.currentStreak - 1, 0) }
-          : q)
-      })),
+async function deleteQuest(id: string, complete: boolean) {
+  const res = await fetch(`/api/quests/${id}?complete=${complete}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
 
-      resetQuest: (id) => set((s) => ({
-        quests: s.quests.map((q) => q.id === id ? { ...q, currentStreak: 0 } : q)
-      })),
+export const useQuestStore = create<QuestStore>()((set, get) => ({
+  quests: [],
+  legendaryQuests: [],
+  completedQuests: [],
+  loading: false,
 
-      incrementLegendary: (id) => set((s) => ({
-        legendaryQuests: s.legendaryQuests.map((q) => q.id === id
-          ? { ...q, currentStreak: Math.min(q.currentStreak + 1, q.goalDays) }
-          : q)
-      })),
+  hydrate: async () => {
+    set({ loading: true });
+    const res = await fetch('/api/quests');
+    const data = await res.json();
 
-      decrementLegendary: (id) => set((s) => ({
-        legendaryQuests: s.legendaryQuests.map((q) => q.id === id
-          ? { ...q, currentStreak: Math.max(q.currentStreak - 1, 0) }
-          : q)
-      })),
+    const regular: Quest[] = [];
+    const legendary: LegendaryQuest[] = [];
 
-      resetLegendary: (id) => set((s) => ({
-        legendaryQuests: s.legendaryQuests.map((q) => q.id === id ? { ...q, currentStreak: 0 } : q)
-      })),
+    for (const row of data.quests) {
+      if (row.is_legendary || row.isLegendary) {
+        legendary.push(toLegendary(row));
+      } else {
+        regular.push(toQuest(row));
+      }
+    }
 
-      startLegendaryQuest: (id) => set((s) => ({
-        legendaryQuests: s.legendaryQuests.map((q) => q.id === id ? { ...q, isStarted: true } : q)
-      })),
+    set({
+      quests: regular,
+      legendaryQuests: legendary,
+      completedQuests: (data.completedQuests ?? []).map(toCompleted),
+      loading: false,
+    });
+  },
 
-      completeQuest: (id) => {
-        const quest = get().quests.find((q) => q.id === id)
-        if (!quest) return
-        set((s) => ({
-          quests: s.quests.filter((q) => q.id !== id),
-          completedQuests: [...s.completedQuests, {
-            id: uuidv4(), title: quest.title, questGiver: quest.questGiver,
-            goalDays: quest.goalDays, completedAt: new Date().toISOString(), isLegendary: false
-          }]
-        }))
-      },
+  addQuest: async (title, questGiver, goalDays) => {
+    const res = await fetch('/api/quests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, questGiverName: questGiver, goalDays }),
+    });
+    const row = await res.json();
+    set((s) => ({ quests: [...s.quests, toQuest(row)] }));
+  },
 
-      completeLegendaryQuest: (id) => {
-        const quest = get().legendaryQuests.find((q) => q.id === id)
-        if (!quest) return
-        set((s) => ({
-          legendaryQuests: s.legendaryQuests.filter((q) => q.id !== id),
-          completedQuests: [...s.completedQuests, {
-            id: uuidv4(), title: quest.title, questGiver: quest.questGiver,
-            goalDays: quest.goalDays, completedAt: new Date().toISOString(), isLegendary: true
-          }]
-        }))
-      },
-    }),
-    { name: "rpg-me-quests" }
-  )
-)
+  addLegendaryQuest: async (title, questGiver, goalDays, requirement) => {
+    const res = await fetch('/api/quests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        questGiverName: questGiver,
+        goalDays,
+        isLegendary: true,
+        requirement,
+      }),
+    });
+    const row = await res.json();
+    set((s) => ({ legendaryQuests: [...s.legendaryQuests, toLegendary(row)] }));
+  },
+
+  incrementQuest: async (id) => {
+    const row = await patchQuest(id, 'increment');
+    set((s) => ({ quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)) }));
+  },
+
+  decrementQuest: async (id) => {
+    const row = await patchQuest(id, 'decrement');
+    set((s) => ({ quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)) }));
+  },
+
+  resetQuest: async (id) => {
+    const row = await patchQuest(id, 'reset');
+    set((s) => ({ quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)) }));
+  },
+
+  completeQuest: async (id) => {
+    await deleteQuest(id, true);
+    await get().hydrate();
+  },
+
+  useStreakSave: async (id) => {
+    const row = await patchQuest(id, 'useStreakSave');
+    set((s) => ({ quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)) }));
+  },
+
+  incrementLegendary: async (id) => {
+    const row = await patchQuest(id, 'increment');
+    set((s) => ({
+      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+    }));
+  },
+
+  decrementLegendary: async (id) => {
+    const row = await patchQuest(id, 'decrement');
+    set((s) => ({
+      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+    }));
+  },
+
+  resetLegendary: async (id) => {
+    const row = await patchQuest(id, 'reset');
+    set((s) => ({
+      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+    }));
+  },
+
+  startLegendaryQuest: async (id) => {
+    const row = await patchQuest(id, 'start');
+    set((s) => ({
+      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+    }));
+  },
+
+  completeLegendaryQuest: async (id) => {
+    await deleteQuest(id, true);
+    await get().hydrate();
+  },
+
+  useStreakSaveLegendary: async (id) => {
+    const row = await patchQuest(id, 'useStreakSave');
+    set((s) => ({
+      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+    }));
+  },
+}));
