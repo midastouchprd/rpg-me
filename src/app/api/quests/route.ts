@@ -2,19 +2,39 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { quests, completedQuests } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { getCurrentUserId } from '@/lib/auth';
+import { getCurrentCharacterContext, isAuthError } from '@/lib/auth';
 import { isAdminUnlocked } from '@/lib/adminLock';
 
 // GET /api/quests — return all active + completed quests for the current user
 export async function GET() {
-  const userId = getCurrentUserId();
+  let context: Awaited<ReturnType<typeof getCurrentCharacterContext>>;
+  try {
+    context = await getCurrentCharacterContext();
+  } catch (error) {
+    if (isAuthError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
 
   const [activeQuests, completed] = await Promise.all([
-    db.select().from(quests).where(eq(quests.userId, userId)),
-    db.select().from(completedQuests).where(eq(completedQuests.userId, userId)),
+    db.select().from(quests).where(eq(quests.characterId, context.characterId)),
+    db
+      .select()
+      .from(completedQuests)
+      .where(eq(completedQuests.characterId, context.characterId)),
   ]);
 
   return NextResponse.json({
+    character: {
+      id: context.characterId,
+      slug: context.characterSlug,
+      name: context.characterName,
+      isPublic: context.isPublic,
+    },
     quests: activeQuests,
     completedQuests: completed,
   });
@@ -22,6 +42,19 @@ export async function GET() {
 
 // POST /api/quests — create a new quest
 export async function POST(req: Request) {
+  let context: Awaited<ReturnType<typeof getCurrentCharacterContext>>;
+  try {
+    context = await getCurrentCharacterContext();
+  } catch (error) {
+    if (isAuthError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
+
   if (!(await isAdminUnlocked())) {
     return NextResponse.json(
       { error: 'Admin unlock required for quest changes.' },
@@ -29,7 +62,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const userId = getCurrentUserId();
   const body = await req.json();
 
   const {
@@ -44,7 +76,8 @@ export async function POST(req: Request) {
   const [created] = await db
     .insert(quests)
     .values({
-      userId,
+      userId: context.userId,
+      characterId: context.characterId,
       title,
       questGiverName,
       questGiverTitle: questGiverTitle ?? null,

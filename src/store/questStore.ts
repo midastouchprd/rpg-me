@@ -1,7 +1,12 @@
 'use client';
 
 import { create } from 'zustand';
-import { Quest, LegendaryQuest, CompletedQuest } from '@/types/quest';
+import {
+  CharacterProfile,
+  Quest,
+  LegendaryQuest,
+  CompletedQuest,
+} from '@/types/quest';
 
 // ---------------------------------------------------------------------------
 // DB row → TS type coercions
@@ -55,13 +60,20 @@ function toCompleted(row: any): CompletedQuest {
 // ---------------------------------------------------------------------------
 
 type QuestStore = {
+  currentCharacter: CharacterProfile | null;
   quests: Quest[];
   legendaryQuests: LegendaryQuest[];
   completedQuests: CompletedQuest[];
   loading: boolean;
+  authRequired: boolean;
+  errorMessage: string | null;
 
   hydrate: () => Promise<void>;
-  addQuest: (title: string, questGiver: string, goalDays: number) => Promise<void>;
+  addQuest: (
+    title: string,
+    questGiver: string,
+    goalDays: number,
+  ) => Promise<void>;
   addLegendaryQuest: (
     title: string,
     questGiver: string,
@@ -87,7 +99,10 @@ async function patchQuest(id: string, action: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action }),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? 'Quest update failed.');
+  }
   return res.json();
 }
 
@@ -95,18 +110,46 @@ async function deleteQuest(id: string, complete: boolean) {
   const res = await fetch(`/api/quests/${id}?complete=${complete}`, {
     method: 'DELETE',
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? 'Quest delete failed.');
+  }
 }
 
 export const useQuestStore = create<QuestStore>()((set, get) => ({
+  currentCharacter: null,
   quests: [],
   legendaryQuests: [],
   completedQuests: [],
   loading: false,
+  authRequired: false,
+  errorMessage: null,
 
   hydrate: async () => {
-    set({ loading: true });
+    set({ loading: true, errorMessage: null });
     const res = await fetch('/api/quests');
+
+    if (res.status === 401) {
+      set({
+        currentCharacter: null,
+        quests: [],
+        legendaryQuests: [],
+        completedQuests: [],
+        loading: false,
+        authRequired: true,
+      });
+      return;
+    }
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      set({
+        loading: false,
+        errorMessage: data?.error ?? 'Failed to load quests.',
+      });
+      return;
+    }
+
     const data = await res.json();
 
     const regular: Quest[] = [];
@@ -121,10 +164,12 @@ export const useQuestStore = create<QuestStore>()((set, get) => ({
     }
 
     set({
+      currentCharacter: data.character ?? null,
       quests: regular,
       legendaryQuests: legendary,
       completedQuests: (data.completedQuests ?? []).map(toCompleted),
       loading: false,
+      authRequired: false,
     });
   },
 
@@ -134,6 +179,12 @@ export const useQuestStore = create<QuestStore>()((set, get) => ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, questGiverName: questGiver, goalDays }),
     });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error ?? 'Failed to create quest.');
+    }
+
     const row = await res.json();
     set((s) => ({ quests: [...s.quests, toQuest(row)] }));
   },
@@ -150,23 +201,35 @@ export const useQuestStore = create<QuestStore>()((set, get) => ({
         requirement,
       }),
     });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error ?? 'Failed to create legendary quest.');
+    }
+
     const row = await res.json();
     set((s) => ({ legendaryQuests: [...s.legendaryQuests, toLegendary(row)] }));
   },
 
   incrementQuest: async (id) => {
     const row = await patchQuest(id, 'increment');
-    set((s) => ({ quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)) }));
+    set((s) => ({
+      quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)),
+    }));
   },
 
   decrementQuest: async (id) => {
     const row = await patchQuest(id, 'decrement');
-    set((s) => ({ quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)) }));
+    set((s) => ({
+      quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)),
+    }));
   },
 
   resetQuest: async (id) => {
     const row = await patchQuest(id, 'reset');
-    set((s) => ({ quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)) }));
+    set((s) => ({
+      quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)),
+    }));
   },
 
   completeQuest: async (id) => {
@@ -176,34 +239,44 @@ export const useQuestStore = create<QuestStore>()((set, get) => ({
 
   useStreakSave: async (id) => {
     const row = await patchQuest(id, 'useStreakSave');
-    set((s) => ({ quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)) }));
+    set((s) => ({
+      quests: s.quests.map((q) => (q.id === id ? toQuest(row) : q)),
+    }));
   },
 
   incrementLegendary: async (id) => {
     const row = await patchQuest(id, 'increment');
     set((s) => ({
-      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+      legendaryQuests: s.legendaryQuests.map((q) =>
+        q.id === id ? toLegendary(row) : q,
+      ),
     }));
   },
 
   decrementLegendary: async (id) => {
     const row = await patchQuest(id, 'decrement');
     set((s) => ({
-      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+      legendaryQuests: s.legendaryQuests.map((q) =>
+        q.id === id ? toLegendary(row) : q,
+      ),
     }));
   },
 
   resetLegendary: async (id) => {
     const row = await patchQuest(id, 'reset');
     set((s) => ({
-      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+      legendaryQuests: s.legendaryQuests.map((q) =>
+        q.id === id ? toLegendary(row) : q,
+      ),
     }));
   },
 
   startLegendaryQuest: async (id) => {
     const row = await patchQuest(id, 'start');
     set((s) => ({
-      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+      legendaryQuests: s.legendaryQuests.map((q) =>
+        q.id === id ? toLegendary(row) : q,
+      ),
     }));
   },
 
@@ -215,7 +288,9 @@ export const useQuestStore = create<QuestStore>()((set, get) => ({
   useStreakSaveLegendary: async (id) => {
     const row = await patchQuest(id, 'useStreakSave');
     set((s) => ({
-      legendaryQuests: s.legendaryQuests.map((q) => (q.id === id ? toLegendary(row) : q)),
+      legendaryQuests: s.legendaryQuests.map((q) =>
+        q.id === id ? toLegendary(row) : q,
+      ),
     }));
   },
 }));

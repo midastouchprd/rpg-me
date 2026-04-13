@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ADMIN_UNLOCK_COOKIE, isAdminUnlocked } from '@/lib/adminLock';
+import { getCurrentUserId, isAuthError } from '@/lib/auth';
 
 type UnlockBody = {
   pin?: string;
@@ -11,6 +12,18 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  try {
+    await getCurrentUserId();
+  } catch (error) {
+    if (isAuthError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
+
   const { pin } = (await req.json()) as UnlockBody;
   const expectedPin = process.env.ADMIN_PIN_CODE;
 

@@ -1,15 +1,15 @@
-// Seed script — inserts Tosin's current quest data into the DB.
+// Seed script — syncs Tosin's current quest snapshot into the DB.
 // Run once after `npm run db:push`:
 //   npm run db:seed
 //
-// It is idempotent: checks for an existing user by email before inserting.
-// After running, copy the printed SEED_USER_ID into your .env.local.
+// It is idempotent for user/character creation and replaces the seeded
+// character's quest state on each run.
 
 import 'dotenv/config';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql, { schema });
@@ -39,33 +39,75 @@ async function seed() {
     console.log('User already exists:', user.id);
   }
 
+  let character = (
+    await db
+      .select()
+      .from(schema.characters)
+      .where(eq(schema.characters.ownerUserId, user.id))
+  )[0];
+
+  if (!character) {
+    [character] = await db
+      .insert(schema.characters)
+      .values({
+        ownerUserId: user.id,
+        slug: 'tosin',
+        name: 'Tosin',
+        isPublic: false,
+      })
+      .returning();
+    console.log('Created character:', character.id);
+  } else {
+    console.log('Character already exists:', character.id);
+  }
+
+  await db
+    .update(schema.quests)
+    .set({ characterId: character.id })
+    .where(
+      and(eq(schema.quests.userId, user.id), isNull(schema.quests.characterId)),
+    );
+
+  await db
+    .update(schema.completedQuests)
+    .set({ characterId: character.id })
+    .where(
+      and(
+        eq(schema.completedQuests.userId, user.id),
+        isNull(schema.completedQuests.characterId),
+      ),
+    );
+
   // -------------------------------------------------------------------------
   // Active quests — using streak counts from screenshot (4/20, 5/7, 5/7)
   // -------------------------------------------------------------------------
   const activeQuests = [
     {
-      title: 'Take a shower AND brush teeth X days in a row',
+      title: 'Stretch in the morning',
+      questGiverName: 'Cyn',
+      goalDays: 14,
+      currentStreak: 6,
+      isLegendary: false,
+      isStarted: true,
+      streakSaveToken: true,
+    },
+    {
+      title: 'Walk 4000 Steps',
+      questGiverName: 'Emily',
+      goalDays: 20,
+      currentStreak: 8,
+      isLegendary: false,
+      isStarted: true,
+      streakSaveToken: true,
+    },
+    {
+      title: 'Take a shower and brush teeth X days in a row',
       questGiverName: 'Chelsea',
       goalDays: 20,
-      currentStreak: 4,
+      currentStreak: 12,
       isLegendary: false,
       isStarted: true,
-    },
-    {
-      title: 'Walk 3,500 steps X days in a row',
-      questGiverName: 'Emily',
-      goalDays: 7,
-      currentStreak: 5,
-      isLegendary: false,
-      isStarted: true,
-    },
-    {
-      title: 'Sleep 6+ hours a night X nights in a row',
-      questGiverName: 'Cyn',
-      goalDays: 7,
-      currentStreak: 5,
-      isLegendary: false,
-      isStarted: true,
+      streakSaveToken: false,
     },
   ];
 
@@ -82,6 +124,7 @@ async function seed() {
       isLegendary: true,
       isStarted: false,
       requirement: 'Reach 399lbs to begin this quest',
+      streakSaveToken: true,
     },
   ];
 
@@ -94,54 +137,62 @@ async function seed() {
       questGiverName: 'Chelsea',
       goalDays: 10,
       isLegendary: false,
-      completedAt: new Date('2026-03-24'),
+      completedAt: new Date('2026-03-23'),
     },
     {
       title: 'Fast for 16 hours X days in a row',
       questGiverName: 'Hannah',
       goalDays: 3,
       isLegendary: false,
-      completedAt: new Date('2026-03-24'),
+      completedAt: new Date('2026-03-23'),
+    },
+    {
+      title: 'Walk 3,500 steps X days in a row',
+      questGiverName: 'Emily',
+      goalDays: 7,
+      isLegendary: false,
+      completedAt: new Date('2026-03-28'),
+    },
+    {
+      title: 'Sleep 6+ hours a night X nights in a row',
+      questGiverName: 'Cyn',
+      goalDays: 7,
+      isLegendary: false,
+      completedAt: new Date('2026-03-29'),
     },
   ];
 
-  // Only insert active/legendary if the user has none yet
-  const existingActive = await db
-    .select()
-    .from(schema.quests)
-    .where(eq(schema.quests.userId, user.id));
+  await db
+    .delete(schema.quests)
+    .where(eq(schema.quests.characterId, character.id));
+  await db.insert(schema.quests).values(
+    [...activeQuests, ...legendaryQuests].map((q) => ({
+      userId: user.id,
+      characterId: character.id,
+      streakSaveToken: true,
+      ...q,
+    })),
+  );
+  console.log(
+    `Synced ${activeQuests.length + legendaryQuests.length} active/legendary quests`,
+  );
 
-  if (existingActive.length === 0) {
-    await db.insert(schema.quests).values(
-      [...activeQuests, ...legendaryQuests].map((q) => ({
-        userId: user.id,
-        streakSaveToken: true,
-        ...q,
-      })),
-    );
-    console.log(
-      `Inserted ${activeQuests.length + legendaryQuests.length} quests`,
-    );
-  } else {
-    console.log('Quests already seeded, skipping');
-  }
-
-  const existingCompleted = await db
-    .select()
-    .from(schema.completedQuests)
-    .where(eq(schema.completedQuests.userId, user.id));
-
-  if (existingCompleted.length === 0) {
-    await db
-      .insert(schema.completedQuests)
-      .values(completed.map((q) => ({ userId: user.id, ...q })));
-    console.log(`Inserted ${completed.length} completed quests`);
-  } else {
-    console.log('Completed quests already seeded, skipping');
-  }
+  await db
+    .delete(schema.completedQuests)
+    .where(eq(schema.completedQuests.characterId, character.id));
+  await db.insert(schema.completedQuests).values(
+    completed.map((q) => ({
+      userId: user.id,
+      characterId: character.id,
+      ...q,
+    })),
+  );
+  console.log(`Synced ${completed.length} completed quests`);
 
   console.log('\n✅ Seed complete!');
-  console.log(`\nAdd this to your .env.local:\nSEED_USER_ID=${user.id}`);
+  console.log(`User ID: ${user.id}`);
+  console.log(`Character ID: ${character.id}`);
+  console.log(`Character slug: ${character.slug}`);
 }
 
 seed().catch((err) => {

@@ -2,13 +2,26 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { quests, completedQuests } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getCurrentUserId } from '@/lib/auth';
+import { getCurrentCharacterContext, isAuthError } from '@/lib/auth';
 import { isAdminUnlocked } from '@/lib/adminLock';
 
 type Params = { params: Promise<{ id: string }> };
 
 // PATCH /api/quests/[id] — update streak, start, or use streak save token
 export async function PATCH(req: Request, { params }: Params) {
+  let context: Awaited<ReturnType<typeof getCurrentCharacterContext>>;
+  try {
+    context = await getCurrentCharacterContext();
+  } catch (error) {
+    if (isAuthError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
+
   if (!(await isAdminUnlocked())) {
     return NextResponse.json(
       { error: 'Admin unlock required for quest changes.' },
@@ -16,14 +29,13 @@ export async function PATCH(req: Request, { params }: Params) {
     );
   }
 
-  const userId = getCurrentUserId();
   const { id } = await params;
   const body = await req.json();
 
   const [existing] = await db
     .select()
     .from(quests)
-    .where(and(eq(quests.id, id), eq(quests.userId, userId)));
+    .where(and(eq(quests.id, id), eq(quests.characterId, context.characterId)));
 
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -68,6 +80,19 @@ export async function PATCH(req: Request, { params }: Params) {
 
 // DELETE /api/quests/[id]?complete=true — complete (archive) or delete a quest
 export async function DELETE(req: Request, { params }: Params) {
+  let context: Awaited<ReturnType<typeof getCurrentCharacterContext>>;
+  try {
+    context = await getCurrentCharacterContext();
+  } catch (error) {
+    if (isAuthError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
+
   if (!(await isAdminUnlocked())) {
     return NextResponse.json(
       { error: 'Admin unlock required for quest changes.' },
@@ -75,7 +100,6 @@ export async function DELETE(req: Request, { params }: Params) {
     );
   }
 
-  const userId = getCurrentUserId();
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const complete = searchParams.get('complete') === 'true';
@@ -83,7 +107,7 @@ export async function DELETE(req: Request, { params }: Params) {
   const [existing] = await db
     .select()
     .from(quests)
-    .where(and(eq(quests.id, id), eq(quests.userId, userId)));
+    .where(and(eq(quests.id, id), eq(quests.characterId, context.characterId)));
 
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -91,7 +115,8 @@ export async function DELETE(req: Request, { params }: Params) {
 
   if (complete) {
     await db.insert(completedQuests).values({
-      userId,
+      userId: context.userId,
+      characterId: context.characterId,
       questGiverUserId: existing.questGiverUserId,
       questGiverName: existing.questGiverName,
       questGiverTitle: existing.questGiverTitle,

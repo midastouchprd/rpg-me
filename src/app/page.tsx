@@ -1,6 +1,13 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import {
+  SignInButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+  useAuth,
+} from '@clerk/nextjs';
 import { useQuestStore } from '@/store/questStore';
 import { QuestCard } from '@/components/QuestCard';
 import { LegendaryQuestCard } from '@/components/LegendaryQuestCard';
@@ -19,8 +26,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function Home() {
-  const { quests, legendaryQuests, completedQuests, loading, hydrate } =
-    useQuestStore();
+  const {
+    currentCharacter,
+    quests,
+    legendaryQuests,
+    completedQuests,
+    loading,
+    authRequired,
+    errorMessage,
+    hydrate,
+  } = useQuestStore();
+  const { isLoaded, isSignedIn } = useAuth();
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
@@ -28,10 +44,18 @@ export default function Home() {
   const [submittingPin, setSubmittingPin] = useState(false);
 
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) {
+      return;
+    }
     hydrate();
-  }, [hydrate]);
+  }, [hydrate, isLoaded, isSignedIn]);
 
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) {
+      setIsAdminUnlocked(false);
+      return;
+    }
+
     let active = true;
 
     async function getUnlockStatus() {
@@ -52,7 +76,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isLoaded, isSignedIn]);
 
   async function handleAdminUnlock(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -82,6 +106,34 @@ export default function Home() {
     }
   }
 
+  if (!isLoaded) {
+    return (
+      <div className='min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center'>
+        <p className='text-zinc-500 text-sm animate-pulse'>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className='min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center px-4'>
+        <div className='w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900/70 p-6 space-y-4 text-center'>
+          <h1 className='text-2xl font-bold text-white font-heading'>
+            RPG-<span className='text-blue-400'>Me</span>
+          </h1>
+          <p className='text-sm text-zinc-400'>
+            Sign in to access and manage your character quests.
+          </p>
+          <SignInButton mode='modal'>
+            <Button className='bg-zinc-100 text-zinc-900 hover:bg-zinc-300 w-full'>
+              Sign in
+            </Button>
+          </SignInButton>
+        </div>
+      </div>
+    );
+  }
+
   if (loading && quests.length === 0) {
     return (
       <div className='min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center'>
@@ -102,26 +154,63 @@ export default function Home() {
               <p className='text-xs text-zinc-500 mt-0.5'>
                 Self-Care Quest Tracker
               </p>
+              {currentCharacter && (
+                <p className='text-xs text-zinc-400 mt-1'>
+                  Character: {currentCharacter.name}
+                  <span className='text-zinc-600'>
+                    {' '}
+                    / {currentCharacter.slug}
+                  </span>
+                </p>
+              )}
             </div>
-            <Button
-              size='sm'
-              variant={isAdminUnlocked ? 'outline' : 'default'}
-              onClick={() => {
-                setPinError('');
-                setAdminDialogOpen(true);
-              }}
-              className={
-                isAdminUnlocked
-                  ? 'border-emerald-700 text-emerald-300 hover:bg-emerald-900/30'
-                  : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-300'
-              }>
-              {isAdminUnlocked ? 'Admin: Unlocked' : 'Admin'}
-            </Button>
+            <div className='flex items-center gap-3'>
+              <Button
+                size='sm'
+                variant={isAdminUnlocked ? 'outline' : 'default'}
+                onClick={() => {
+                  setPinError('');
+                  setAdminDialogOpen(true);
+                }}
+                className={
+                  isAdminUnlocked
+                    ? 'border-emerald-700 text-emerald-300 hover:bg-emerald-900/30'
+                    : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-300'
+                }>
+                {isAdminUnlocked ? 'Admin: Unlocked' : 'Admin'}
+              </Button>
+              <SignedIn>
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: 'h-8 w-8',
+                    },
+                  }}
+                />
+              </SignedIn>
+              <SignedOut>
+                <SignInButton mode='modal'>
+                  <Button
+                    size='sm'
+                    className='bg-zinc-100 text-zinc-900 hover:bg-zinc-300'>
+                    Sign in
+                  </Button>
+                </SignInButton>
+              </SignedOut>
+            </div>
           </div>
           {!isAdminUnlocked && (
             <p className='text-xs text-amber-400 mt-3'>
               Admin lock is active. Enter PIN to enable all quest buttons.
             </p>
+          )}
+          {authRequired && (
+            <p className='text-xs text-rose-400 mt-2'>
+              Sign in is required to load your quest data.
+            </p>
+          )}
+          {errorMessage && (
+            <p className='text-xs text-rose-400 mt-2'>{errorMessage}</p>
           )}
         </div>
       </header>

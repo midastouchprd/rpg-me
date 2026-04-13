@@ -1,3 +1,10 @@
+export type CharacterProfile = {
+  id: string;
+  slug: string;
+  name: string;
+  isPublic: boolean;
+};
+
 export type Quest = {
   id: string;
   title: string;

@@ -38,6 +38,25 @@ export const users = pgTable('users', {
 });
 
 // ---------------------------------------------------------------------------
+// characters
+// ---------------------------------------------------------------------------
+// One row per inspectable player profile. Current behavior creates one default
+// character per signed-in user; future work will add multiple characters and
+// public inspect routes by slug.
+
+export const characters = pgTable('characters', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ownerUserId: uuid('owner_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  slug: varchar('slug', { length: 120 }).notNull().unique(),
+  name: varchar('name', { length: 255 }).notNull(),
+  isPublic: boolean('is_public').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
 // quests  (active — regular + legendary unified)
 // ---------------------------------------------------------------------------
 // is_legendary + is_started distinguish the two quest types.
@@ -51,6 +70,9 @@ export const quests = pgTable('quests', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  characterId: uuid('character_id').references(() => characters.id, {
+    onDelete: 'cascade',
+  }),
 
   // quest giver — freeform name now, linked account later
   questGiverUserId: uuid('quest_giver_user_id').references(() => users.id, {
@@ -84,6 +106,9 @@ export const completedQuests = pgTable('completed_quests', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  characterId: uuid('character_id').references(() => characters.id, {
+    onDelete: 'cascade',
+  }),
 
   // preserve quest giver link if they had an account
   questGiverUserId: uuid('quest_giver_user_id').references(() => users.id, {
@@ -105,14 +130,28 @@ export const completedQuests = pgTable('completed_quests', {
 // ---------------------------------------------------------------------------
 
 export const usersRelations = relations(users, ({ many }) => ({
+  characters: many(characters),
   quests: many(quests),
   completedQuests: many(completedQuests),
   givenQuests: many(quests, { relationName: 'questGiver' }),
   givenCompletedQuests: many(completedQuests, { relationName: 'questGiver' }),
 }));
 
+export const charactersRelations = relations(characters, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [characters.ownerUserId],
+    references: [users.id],
+  }),
+  quests: many(quests),
+  completedQuests: many(completedQuests),
+}));
+
 export const questsRelations = relations(quests, ({ one }) => ({
   user: one(users, { fields: [quests.userId], references: [users.id] }),
+  character: one(characters, {
+    fields: [quests.characterId],
+    references: [characters.id],
+  }),
   questGiverUser: one(users, {
     fields: [quests.questGiverUserId],
     references: [users.id],
@@ -126,6 +165,10 @@ export const completedQuestsRelations = relations(
     user: one(users, {
       fields: [completedQuests.userId],
       references: [users.id],
+    }),
+    character: one(characters, {
+      fields: [completedQuests.characterId],
+      references: [characters.id],
     }),
     questGiverUser: one(users, {
       fields: [completedQuests.questGiverUserId],
