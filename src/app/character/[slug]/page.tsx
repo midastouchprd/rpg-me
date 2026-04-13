@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { SignInButton, UserButton, Show, useAuth } from '@clerk/nextjs';
 import { useQuestStore } from '@/store/questStore';
 import { QuestCard } from '@/components/QuestCard';
@@ -169,9 +170,11 @@ export default function CharacterPage() {
         <div className='max-w-2xl mx-auto px-4 py-4'>
           <div className='flex items-start justify-between gap-3'>
             <div>
-              <h1 className='text-2xl font-bold tracking-[0.1em] text-white font-heading'>
-                ⚔️ RPG-<span className='text-blue-400'>Me</span>
-              </h1>
+              <Link href='/characters'>
+                <h1 className='text-2xl font-bold tracking-[0.1em] text-white font-heading hover:text-blue-300 transition-colors'>
+                  ⚔️ RPG-<span className='text-blue-400'>Me</span>
+                </h1>
+              </Link>
               <p className='text-xs text-zinc-500 mt-0.5'>Self-Care Quest Tracker</p>
               <p className='text-xs text-zinc-400 mt-1'>
                 {character!.name}

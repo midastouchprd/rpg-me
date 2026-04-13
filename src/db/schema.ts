@@ -51,7 +51,7 @@ export const characters = pgTable('characters', {
     .references(() => users.id, { onDelete: 'cascade' }),
   slug: varchar('slug', { length: 120 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
-  isPublic: boolean('is_public').notNull().default(false),
+  isPublic: boolean('is_public').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

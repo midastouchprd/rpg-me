@@ -107,7 +107,7 @@ async function getOrCreateDefaultCharacter(
       ownerUserId: userId,
       slug,
       name: preferredName,
-      isPublic: false,
+      isPublic: true,
     })
     .returning({
       id: characters.id,
