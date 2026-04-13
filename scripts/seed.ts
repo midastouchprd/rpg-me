@@ -223,7 +223,6 @@ async function seed() {
     [...activeQuests, ...legendaryQuests].map((q) => ({
       userId: user.id,
       characterId: character.id,
-      streakSaveToken: true,
       ...q,
     })),
   );
