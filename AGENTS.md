@@ -12,7 +12,7 @@ RPG-Me is a self-care quest tracker built as a personal RPG. The user treats the
 - shadcn/ui (components in src/components/ui/)
 - Zustand client store backed by API routes
 - Drizzle ORM + Neon Postgres
-- Clerk authentication
+- Clerk authentication (v7)
 
 ## Current State
 
@@ -24,18 +24,20 @@ RPG-Me is a self-care quest tracker built as a personal RPG. The user treats the
 - [x] database-backed quest API routes exist under `src/app/api/quests/**`
 - [x] Drizzle schema exists in `src/db/schema.ts`
 - [x] seed script exists in `scripts/seed.ts`
-- [x] Clerk auth is wired into `middleware.ts`, `src/app/layout.tsx`, and `src/lib/auth.ts`
+- [x] Clerk auth is wired into `src/middleware.ts`, `src/app/layout.tsx`, and `src/lib/auth.ts`
 - [x] quest APIs require authenticated users
-- [x] temporary admin PIN unlock gates all write actions after sign-in
 - [x] character ownership foundation exists: `characters` table, default character creation, slug generation, and quest/completed quest linkage by `characterId`
+- [x] public inspect mode for non-owners — `/character/[slug]` shows read-only view for visitors
+- [x] owner-vs-visitor authorization at the character level — ownership enforced server-side via character context; no admin PIN
+- [x] character-specific routes and UI (`/character/[slug]`) — home page redirects signed-in users to their character page
+- [x] admin PIN system removed — write access gated by character ownership alone
 
 ### Still Needs Building
 
-- [ ] public inspect mode for non-owners (WoW-style read-only profile)
-- [ ] owner-vs-visitor authorization at the character level instead of the current single-user dashboard model
-- [ ] character-specific routes and UI (`/character/[slug]`)
-- [ ] replace temporary email-based local-user mapping with a more explicit Clerk identity mapping in the DB
-- [ ] remove or reduce reliance on admin PIN once owner permissions are fully implemented
+- [ ] replace email-based local-user mapping with explicit Clerk `externalId` mapping in the DB
+- [ ] multiple characters per user
+- [ ] character `isPublic` toggle in the UI (currently set directly in DB; default is `false`)
+- [ ] Health Connect sync (`/api/health-connect`) for auto-incrementing streaks from Android step/sleep/weight data
 
 ## Architecture Notes
 
@@ -49,11 +51,17 @@ RPG-Me is a self-care quest tracker built as a personal RPG. The user treats the
 ### Auth / Access Model
 
 - Clerk handles sign-in and session state
-- `src/lib/auth.ts` resolves the current Clerk user, upserts/loads a local DB user by email, and creates/resolves the user's default character
-- Current behavior is authenticated single-character dashboard access: a signed-in user sees the quests for their resolved character
-- Existing user-owned quest rows are backfilled onto the default character automatically
-- Write actions still require the temporary admin unlock cookie in addition to being authenticated
-- The admin unlock is browser-cookie based and intentionally temporary until full ownership/inspect permissions are implemented
+- `src/lib/auth.ts` provides two auth helpers:
+  - `getCurrentCharacterContext()` — resolves the signed-in Clerk user → local DB user (upsert by email) → default character (create if missing). Used by all write API routes.
+  - `getOptionalLocalUserId()` — lightweight read-only lookup: Clerk user → local DB user ID, no row creation. Used by the public character API to determine `isOwner` without side effects.
+- `src/middleware.ts` must live in `src/` (not root) because the project uses a `src/` directory — Clerk v7 enforces this.
+- Write authorization: a mutation is allowed if and only if the quest's `characterId` matches the signed-in user's resolved character. No additional layer needed.
+- Character visibility: `characters.isPublic` gates `/api/character/[slug]` for non-owners. Owners always have access. Default is `false` — set to `true` in the DB to make a character publicly viewable.
+
+### Routing
+
+- `/` — landing page for signed-out users; redirects signed-in users to `/character/[slug]`
+- `/character/[slug]` — main character page. Owner mode: full interactive controls via Zustand store. Visitor mode: read-only, data from `/api/character/[slug]`.
 
 ### Health Connect (Future)
 
@@ -85,7 +93,7 @@ RPG-Me is a self-care quest tracker built as a personal RPG. The user treats the
 
 ## Seeded Data
 
-The seed script inserts sample quest data into the database. The current auth mapping is email-based, so to see seeded data immediately after signing in with Clerk, use the same email address as the seeded DB user. Do not treat this guide as the source of truth for current quest records; the database and `scripts/seed.ts` are the source of truth.
+Run `SEED_EMAIL=you@example.com npm run db:seed` to seed quest data for a given account. The script finds or creates the local user by email and generates a unique character slug from the email prefix. Pass `SEED_DISPLAY_NAME=YourName` to override the display name. The database and `scripts/seed.ts` are the source of truth for current quest records, not this guide.
 
 ## UI Guidelines
 
@@ -99,11 +107,13 @@ The seed script inserts sample quest data into the database. The current auth ma
 
 ## Important Files
 
-- `src/app/page.tsx` — signed-in dashboard, Clerk auth UI, admin unlock dialog
+- `src/app/page.tsx` — landing/redirect page; signed-in users are sent to their character slug
+- `src/app/character/[slug]/page.tsx` — main character UI; owner gets full controls, visitor gets read-only
 - `src/store/questStore.ts` — quest fetching/mutation client state
-- `src/lib/auth.ts` — Clerk session to local DB user + default character resolution
+- `src/lib/auth.ts` — Clerk session to local DB user + default character resolution; `getOptionalLocalUserId` for read-only ownership checks
 - `src/app/api/quests/route.ts` — list/create quests for the resolved current character
 - `src/app/api/quests/[id]/route.ts` — mutate/delete quests owned by the resolved current character
-- `src/app/api/admin/unlock/route.ts` — temporary admin PIN unlock
+- `src/app/api/character/[slug]/route.ts` — public character profile API; returns quests + `isOwner` flag
 - `src/db/schema.ts` — DB schema for users, characters, quests, completed quests
-- `scripts/seed.ts` — sample data seed and character backfill
+- `scripts/seed.ts` — sample data seed; accepts `SEED_EMAIL` and `SEED_DISPLAY_NAME` env vars
+- `src/middleware.ts` — Clerk middleware (must be in `src/`, not root)
