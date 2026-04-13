@@ -194,3 +194,32 @@ export async function getCurrentUserId(): Promise<string> {
   const context = await getCurrentCharacterContext();
   return context.userId;
 }
+
+// Lightweight read-only lookup — no user/character creation.
+// Returns the local DB user ID for the signed-in Clerk user, or null.
+export async function getOptionalLocalUserId(): Promise<string | null> {
+  try {
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) return null;
+
+    const clerkUser = await currentUser();
+    if (!clerkUser) return null;
+
+    const primaryEmail =
+      clerkUser.emailAddresses.find(
+        (e) => e.id === clerkUser.primaryEmailAddressId,
+      )?.emailAddress ?? clerkUser.emailAddresses[0]?.emailAddress;
+
+    if (!primaryEmail) return null;
+
+    const [existing] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, primaryEmail))
+      .limit(1);
+
+    return existing?.id ?? null;
+  } catch {
+    return null;
+  }
+}

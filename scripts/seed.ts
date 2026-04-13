@@ -14,8 +14,36 @@ import { and, eq, isNull } from 'drizzle-orm';
 const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql, { schema });
 
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+async function getUniqueSlug(base: string) {
+  const baseSlug = slugify(base) || 'character';
+  let candidate = baseSlug;
+  let suffix = 2;
+  while (true) {
+    const [existing] = await db
+      .select({ id: schema.characters.id })
+      .from(schema.characters)
+      .where(eq(schema.characters.slug, candidate))
+      .limit(1);
+    if (!existing) return candidate;
+    candidate = `${baseSlug}-${suffix++}`;
+  }
+}
+
 async function seed() {
-  const EMAIL = 'tosin@rpg-me.app';
+  const EMAIL = process.env.SEED_EMAIL ?? 'tosin@rpg-me.app';
+  if (!process.env.SEED_EMAIL) {
+    console.warn('SEED_EMAIL not set — defaulting to tosin@rpg-me.app');
+  }
+  console.log(`Seeding for: ${EMAIL}`);
 
   // -------------------------------------------------------------------------
   // Upsert player user
@@ -24,13 +52,14 @@ async function seed() {
     await db.select().from(schema.users).where(eq(schema.users.email, EMAIL))
   )[0];
 
+  const displayName = process.env.SEED_DISPLAY_NAME ?? EMAIL.split('@')[0];
+
   if (!user) {
     [user] = await db
       .insert(schema.users)
       .values({
         email: EMAIL,
-        username: 'tosin',
-        displayName: 'Tosin',
+        displayName,
         role: 'player',
       })
       .returning();
@@ -47,18 +76,19 @@ async function seed() {
   )[0];
 
   if (!character) {
+    const slug = await getUniqueSlug(displayName);
     [character] = await db
       .insert(schema.characters)
       .values({
         ownerUserId: user.id,
-        slug: 'tosin',
-        name: 'Tosin',
+        slug,
+        name: displayName,
         isPublic: false,
       })
       .returning();
-    console.log('Created character:', character.id);
+    console.log('Created character:', character.id, '/ slug:', character.slug);
   } else {
-    console.log('Character already exists:', character.id);
+    console.log('Character already exists:', character.id, '/ slug:', character.slug);
   }
 
   await db
@@ -79,23 +109,23 @@ async function seed() {
     );
 
   // -------------------------------------------------------------------------
-  // Active quests — using streak counts from screenshot (4/20, 5/7, 5/7)
+  // Active quests — synced from live app Apr 13 2026
   // -------------------------------------------------------------------------
   const activeQuests = [
     {
-      title: 'Stretch in the morning',
-      questGiverName: 'Cyn',
-      goalDays: 14,
-      currentStreak: 6,
+      title: 'Fast for 16 Hrs',
+      questGiverName: 'Deanna',
+      goalDays: 7,
+      currentStreak: 0,
       isLegendary: false,
       isStarted: true,
       streakSaveToken: true,
     },
     {
-      title: 'Walk 4000 Steps',
-      questGiverName: 'Emily',
-      goalDays: 20,
-      currentStreak: 8,
+      title: 'Track All Your Food',
+      questGiverName: 'Sasha',
+      goalDays: 7,
+      currentStreak: 0,
       isLegendary: false,
       isStarted: true,
       streakSaveToken: true,
@@ -104,10 +134,19 @@ async function seed() {
       title: 'Take a shower and brush teeth X days in a row',
       questGiverName: 'Chelsea',
       goalDays: 20,
-      currentStreak: 12,
+      currentStreak: 19,
       isLegendary: false,
       isStarted: true,
-      streakSaveToken: false,
+      streakSaveToken: true,
+    },
+    {
+      title: 'Walk 4000 Steps',
+      questGiverName: 'Emily',
+      goalDays: 20,
+      currentStreak: 14,
+      isLegendary: false,
+      isStarted: true,
+      streakSaveToken: true,
     },
   ];
 
@@ -129,7 +168,7 @@ async function seed() {
   ];
 
   // -------------------------------------------------------------------------
-  // Completed quests
+  // Completed quests — synced from live app Apr 13 2026
   // -------------------------------------------------------------------------
   const completed = [
     {
@@ -137,28 +176,43 @@ async function seed() {
       questGiverName: 'Chelsea',
       goalDays: 10,
       isLegendary: false,
-      completedAt: new Date('2026-03-23'),
+      completedAt: new Date('2026-03-22'),
     },
     {
       title: 'Fast for 16 hours X days in a row',
       questGiverName: 'Hannah',
       goalDays: 3,
       isLegendary: false,
-      completedAt: new Date('2026-03-23'),
+      completedAt: new Date('2026-03-22'),
     },
     {
       title: 'Walk 3,500 steps X days in a row',
       questGiverName: 'Emily',
       goalDays: 7,
       isLegendary: false,
-      completedAt: new Date('2026-03-28'),
+      completedAt: new Date('2026-03-27'),
     },
     {
       title: 'Sleep 6+ hours a night X nights in a row',
       questGiverName: 'Cyn',
       goalDays: 7,
       isLegendary: false,
-      completedAt: new Date('2026-03-29'),
+      completedAt: new Date('2026-03-28'),
+    },
+    {
+      title: 'Stretch in the morning',
+      questGiverName: 'Cyn',
+      goalDays: 14,
+      isLegendary: false,
+      completedAt: new Date('2026-04-12'),
+    },
+    {
+      title: '80oz of Water A Day',
+      questGiverName: 'Breanna',
+      questGiverTitle: 'Juiceland Smoothies',
+      goalDays: 7,
+      isLegendary: false,
+      completedAt: new Date('2026-04-12'),
     },
   ];
 

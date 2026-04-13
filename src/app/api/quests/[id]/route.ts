@@ -3,7 +3,6 @@ import { db } from '@/db';
 import { quests, completedQuests } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getCurrentCharacterContext, isAuthError } from '@/lib/auth';
-import { isAdminUnlocked } from '@/lib/adminLock';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,13 +19,6 @@ export async function PATCH(req: Request, { params }: Params) {
       );
     }
     throw error;
-  }
-
-  if (!(await isAdminUnlocked())) {
-    return NextResponse.json(
-      { error: 'Admin unlock required for quest changes.' },
-      { status: 403 },
-    );
   }
 
   const { id } = await params;
@@ -91,13 +83,6 @@ export async function DELETE(req: Request, { params }: Params) {
       );
     }
     throw error;
-  }
-
-  if (!(await isAdminUnlocked())) {
-    return NextResponse.json(
-      { error: 'Admin unlock required for quest changes.' },
-      { status: 403 },
-    );
   }
 
   const { id } = await params;
