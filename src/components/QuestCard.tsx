@@ -18,6 +18,7 @@ export function QuestCard({ quest, disabled = false }: Props) {
     decrementQuest,
     resetQuest,
     completeQuest,
+    removeQuest,
     useStreakSave: applyStreakSave,
   } = useQuestStore();
 
@@ -43,9 +44,23 @@ export function QuestCard({ quest, disabled = false }: Props) {
               Quest Giver: {quest.questGiver}
             </p>
           </div>
-          <Badge className='bg-blue-700/50 text-blue-200 border border-blue-600 shrink-0'>
-            Active
-          </Badge>
+          <div className='flex items-center gap-2 shrink-0'>
+            <Badge className='bg-blue-700/50 text-blue-200 border border-blue-600'>
+              Active
+            </Badge>
+            {!disabled && (
+              <button
+                onClick={() => {
+                  if (confirm(`Delete "${quest.title}"? This cannot be undone.`)) {
+                    removeQuest(quest.id);
+                  }
+                }}
+                title='Delete quest'
+                className='text-slate-500 hover:text-rose-400 transition-colors text-base leading-none'>
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className='space-y-4'>

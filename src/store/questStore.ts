@@ -89,6 +89,8 @@ type QuestStore = {
   startLegendaryQuest: (id: string) => Promise<void>;
   completeQuest: (id: string) => Promise<void>;
   completeLegendaryQuest: (id: string) => Promise<void>;
+  removeQuest: (id: string) => Promise<void>;
+  removeLegendaryQuest: (id: string) => Promise<void>;
   useStreakSave: (id: string) => Promise<void>;
   useStreakSaveLegendary: (id: string) => Promise<void>;
 };
@@ -235,6 +237,18 @@ export const useQuestStore = create<QuestStore>()((set, get) => ({
   completeQuest: async (id) => {
     await deleteQuest(id, true);
     await get().hydrate();
+  },
+
+  removeQuest: async (id) => {
+    await deleteQuest(id, false);
+    set((s) => ({ quests: s.quests.filter((q) => q.id !== id) }));
+  },
+
+  removeLegendaryQuest: async (id) => {
+    await deleteQuest(id, false);
+    set((s) => ({
+      legendaryQuests: s.legendaryQuests.filter((q) => q.id !== id),
+    }));
   },
 
   useStreakSave: async (id) => {

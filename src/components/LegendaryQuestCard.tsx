@@ -19,6 +19,7 @@ export function LegendaryQuestCard({ quest, disabled = false }: Props) {
     resetLegendary,
     startLegendaryQuest,
     completeLegendaryQuest,
+    removeLegendaryQuest,
     useStreakSaveLegendary: applyStreakSaveLegendary,
   } = useQuestStore();
 
@@ -51,9 +52,23 @@ export function LegendaryQuestCard({ quest, disabled = false }: Props) {
                 <p className='text-xs text-zinc-600'>{quest.questGiverTitle}</p>
               )}
             </div>
-            <Badge className='bg-zinc-700 text-zinc-400 border border-zinc-600 shrink-0'>
-              Locked
-            </Badge>
+            <div className='flex items-center gap-2 shrink-0'>
+              <Badge className='bg-zinc-700 text-zinc-400 border border-zinc-600'>
+                Locked
+              </Badge>
+              {!disabled && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete "${quest.title}"? This cannot be undone.`)) {
+                      removeLegendaryQuest(quest.id);
+                    }
+                  }}
+                  title='Delete quest'
+                  className='text-zinc-600 hover:text-rose-400 transition-colors text-base leading-none'>
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className='space-y-3'>
@@ -96,9 +111,23 @@ export function LegendaryQuestCard({ quest, disabled = false }: Props) {
               </p>
             )}
           </div>
-          <Badge className='bg-amber-700/60 text-amber-200 border border-amber-500 shrink-0'>
-            Legendary
-          </Badge>
+          <div className='flex items-center gap-2 shrink-0'>
+            <Badge className='bg-amber-700/60 text-amber-200 border border-amber-500'>
+              Legendary
+            </Badge>
+            {!disabled && (
+              <button
+                onClick={() => {
+                  if (confirm(`Delete "${quest.title}"? This cannot be undone.`)) {
+                    removeLegendaryQuest(quest.id);
+                  }
+                }}
+                title='Delete quest'
+                className='text-amber-700 hover:text-rose-400 transition-colors text-base leading-none'>
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className='space-y-4'>
